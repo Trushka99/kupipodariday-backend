@@ -1,45 +1,43 @@
 import { Entity, Column, ManyToOne, OneToMany } from 'typeorm';
 import { MainEntity } from 'src/utils/MainEntity';
 import {
-  IsString,
   IsUrl,
   Length,
   IsNumber,
-  IsArray,
   Min,
+  IsPositive,
+  IsDecimal,
 } from 'class-validator';
 import { User } from 'src/users/entities/user.entity';
 import { Offer } from 'src/offers/entities/offer.entity';
-
 @Entity()
 export class Wish extends MainEntity {
-  @IsString()
-  @Length(1, 250)
   @Column({
     type: 'varchar',
     length: 250,
   })
+  @Length(1, 250)
   name: string;
 
-  @IsUrl()
-  @IsString()
   @Column({
     type: 'text',
   })
+  @IsUrl()
   link: string;
 
-  @IsUrl()
-  @IsString()
   @Column({
     type: 'text',
   })
+  @IsUrl()
   image: string;
 
-  @IsNumber()
-  @Min(1)
   @Column({
     type: 'numeric',
   })
+  @IsNumber({
+    maxDecimalPlaces: 2,
+  })
+  @IsPositive()
   price: number;
 
   @IsNumber()
@@ -50,25 +48,23 @@ export class Wish extends MainEntity {
   })
   raised: number;
 
-  @ManyToOne(() => User, (user) => user.wishes)
-  owner: User;
-
-  @IsString()
-  @Length(1, 1024)
   @Column({
     type: 'varchar',
     length: 1024,
   })
+  @Length(1, 1024)
   description: string;
 
-  @OneToMany(() => Offer, (offer) => offer.item)
-  @IsArray()
-  offers: Offer[];
-
-  @IsNumber()
   @Column({
-    type: 'integer',
+    type: 'numeric',
     default: 0,
   })
+  @IsDecimal()
   copied: number;
+
+  @ManyToOne(() => User, (user) => user.wishes)
+  owner: User;
+
+  @OneToMany(() => Offer, (offer) => offer.item)
+  offers: Offer[];
 }

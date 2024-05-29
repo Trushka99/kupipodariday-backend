@@ -9,7 +9,6 @@ import { Repository } from 'typeorm';
 import { CreateWishDto } from './dto/create-wish.dto';
 import { UpdateWishDto } from './dto/update-wish.dto';
 import { Wish } from './entities/wish.entity';
-import { validate } from 'class-validator';
 
 @Injectable()
 export class WishesService {
@@ -20,37 +19,53 @@ export class WishesService {
     private userRepository: Repository<User>,
   ) {}
   async create(createWishDto: CreateWishDto, userId: number) {
-    const wish = new Wish();
-    for (const key in createWishDto) {
-      wish[key] = createWishDto[key];
-    }
     const user = await this.userRepository.findOneBy({ id: userId });
-    wish.owner = user;
-    return this.wishRepository.save(wish);
+    return this.wishRepository.save({
+      ...createWishDto,
+      owner: user,
+    });
   }
 
-  getLastWishes() {
+  getLastWishes(): Promise<Wish[]> {
     return this.wishRepository.find({
-      skip: 0,
+      order: { createdAt: 'DESC' },
       take: 40,
     });
   }
 
-  getTopWishes() {
+  getTopWishes(): Promise<Wish[]> {
     return this.wishRepository.find({
-      skip: 0,
+      order: { copied: 'desc' },
       take: 20,
     });
   }
 
-  getWish(id: number) {
-    const wish = this.wishRepository.findOneBy({ id: id });
+  async findOne(id: number): Promise<Wish> {
+    const wish = this.wishRepository.findOne({
+      relations: {
+        offers: {
+          user: true,
+        },
+        owner: true,
+      },
+      where: {
+        id,
+      },
+    });
     if (!wish) throw new BadRequestException('Подарка с таким id не найдено');
     return wish;
   }
 
-  async update(id: number, updateWishDto: UpdateWishDto, userId: number) {
+  async update(
+    id: number,
+    updateWishDto: UpdateWishDto,
+    userId: number,
+  ): Promise<Wish> {
     const wish = await this.wishRepository.findOne({
+      relations: {
+        offers: true,
+        owner: true,
+      },
       where: {
         id,
         owner: {
@@ -62,15 +77,16 @@ export class WishesService {
     if (!wish) throw new BadRequestException('Подарка с таким id не найдено');
 
     if (!wish.offers.length) {
-      for (const key in updateWishDto) {
-        wish[key] = updateWishDto[key];
-      }
-      return this.wishRepository.save(wish);
+      await this.wishRepository.update(id, updateWishDto);
+      return this.findOne(id);
     }
-    return wish;
+
+    throw new BadRequestException(
+      'Нельзя редактировать подарок, на который уже скинулись',
+    );
   }
 
-  async remove(id: number, userId: number) {
+  async remove(id: number, userId: number): Promise<Wish> {
     const wish = await this.wishRepository.findOne({
       where: {
         id,
@@ -88,5 +104,27 @@ export class WishesService {
         'Нельзя удалить подарок на который уже скинулись',
       );
     }
+  }
+
+  async copy(id: number, userId: number): Promise<Wish> {
+    const wish = await this.wishRepository.findOneBy({ id });
+    if (!wish) throw new BadRequestException('Подарка с таким id не найдено');
+    const user = await this.userRepository.findOne({
+      relations: {
+        wishes: true,
+      },
+      where: {
+        id: userId,
+      },
+    });
+    const newWish = this.wishRepository.create(wish);
+    newWish.copied = 0;
+    newWish.raised = 0;
+    newWish.owner = user;
+    wish.copied += 1;
+    await this.wishRepository.save(wish);
+    await this.wishRepository.insert(newWish);
+
+    return newWish;
   }
 }

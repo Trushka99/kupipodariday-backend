@@ -37,7 +37,7 @@ export class WishesController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   getOneWish(@Param('id') id: string) {
-    return this.wishesService.getWish(+id);
+    return this.wishesService.findOne(+id);
   }
 
   @Patch(':id')
@@ -54,5 +54,10 @@ export class WishesController {
   @UseGuards(AuthGuard('jwt'))
   remove(@Param('id') id: string, @Req() req) {
     return this.wishesService.remove(+id, req.user.id);
+  }
+  @Post(':id/copy')
+  @UseGuards(AuthGuard('jwt'))
+  copy(@Param('id') id: string, @Req() req) {
+    return this.wishesService.copy(+id, req.user.id);
   }
 }

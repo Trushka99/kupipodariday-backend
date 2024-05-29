@@ -7,13 +7,14 @@ import { User } from './entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { QueryFailedError } from 'typeorm';
 import { ConflictException } from '@nestjs/common';
+import { Wish } from 'src/wishes/entities/wish.entity';
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
-  async create(createUserDto: CreateUserDto) {
+  async create(createUserDto: CreateUserDto): Promise<User> {
     const { password } = createUserDto;
     const hash = await bcrypt.hash(password, 10);
     try {
@@ -35,10 +36,14 @@ export class UsersService {
     }
   }
 
-  async getWishesWithUsername(username: string) {
+  async getWishesWithUsername(username: string): Promise<Wish[]> {
     const user = await this.userRepository.findOne({
       where: {
         username,
+      },
+      relations: {
+        wishes: true,
+        offers: true,
       },
     });
 
@@ -53,12 +58,21 @@ export class UsersService {
       where: {
         id: userId,
       },
+      relations: {
+        wishes: true,
+      },
     });
     return user.wishes;
   }
 
-  async updateById(id: number, updateUserDto: UpdateUserDto) {
-    return this.userRepository.update({ id }, updateUserDto);
+  async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
+    const user = await this.userRepository.findOneBy({ id: id });
+    if (updateUserDto.password) {
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    }
+
+    await this.userRepository.update(id, updateUserDto);
+    return user;
   }
 
   async findMany(str: string) {
@@ -66,8 +80,14 @@ export class UsersService {
       where: [{ username: str } || { email: str }],
     });
   }
-  async getUserByUsername(username: string) {
+  async getUserByUsername(username: string): Promise<User> {
     const user = await this.userRepository.findOne({
+      select: {
+        id: true,
+        password: true,
+        username: true,
+        about: true,
+      },
       where: {
         username,
       },

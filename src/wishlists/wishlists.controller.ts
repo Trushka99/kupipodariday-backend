@@ -28,9 +28,20 @@ export class WishlistsController {
   getAllWishlists() {
     return this.wishlistsService.getAllWishlists();
   }
-
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateWishlistDto: UpdateWishlistDto,
+    @Req() req,
+  ) {
+    return this.wishlistsService.update(+id, updateWishlistDto, req.user.id);
+  }
   @Get(':id')
   getWishListById(@Param('id') id: string) {
     return this.wishlistsService.getWishListById(+id);
+  }
+  @Delete(':id')
+  remove(@Param('id') id: string, @Req() req) {
+    return this.wishlistsService.remove(+id, req.user.id);
   }
 }
